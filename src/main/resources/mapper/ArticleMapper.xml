@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.app.backend.mapper.ArticleMapper">
+    
+    <!-- 根据类型查询博文列表 -->
+    <select id="findByType" resultType="com.app.backend.entity.Article">
+        SELECT * FROM pd_article 
+        WHERE type = #{type} 
+        ORDER BY create_time DESC
+    </select>
+    
+    <!-- 根据作者ID查询博文列表 -->
+    <select id="findByAuthorId" resultType="com.app.backend.entity.Article">
+        SELECT * FROM pd_article 
+        WHERE author_id = #{authorId} 
+        ORDER BY create_time DESC
+    </select>
+    
+    <!-- 分页查询博文（按类型） -->
+    <select id="selectPageByType" resultType="com.app.backend.entity.Article">
+        SELECT * FROM pd_article 
+        WHERE type = #{type} 
+        ORDER BY create_time DESC
+    </select>
+    
+    <!-- 分页查询博文（按作者） -->
+    <select id="selectPageByAuthor" resultType="com.app.backend.entity.Article">
+        SELECT * FROM pd_article 
+        WHERE author_id = #{authorId} 
+        ORDER BY create_time DESC
+    </select>
+    
+    <!-- 根据地理位置范围查询博文 -->
+    <select id="findByLocationRange" resultType="com.app.backend.entity.Article">
+        SELECT * FROM pd_article 
+        WHERE latitude BETWEEN #{minLat} AND #{maxLat}
+        AND longitude BETWEEN #{minLng} AND #{maxLng}
+        ORDER BY create_time DESC
+    </select>
+    
+</mapper>
