@@ -258,4 +258,10 @@ public class ArticleController {
     public ResultVO<String> saveArticleImages(MultipartFile file) {
         return ResultVO.ok(uploadStrategyContext.executeUploadStrategy(file, FilePathEnum.ARTICLE.getPath()));
     }
+
+
+    @PostMapping("/like")
+    public ResultVO<String> dealLike(){
+        return ResultVO.ok();
+    }
 }

@@ -12,6 +12,7 @@ import com.app.backend.entity.Article;
 import com.app.backend.mapper.ArticleMapper;
 import com.app.backend.service.ArticleService;
 import org.checkerframework.checker.units.qual.A;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -31,6 +32,10 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
 
     @Autowired
     private ArticleImageMapper articleImageMapper;
+
+
+    @Autowired
+    private RabbitTemplate rabbitTemplate;
     
     // 支持的博文类型
     private static final List<String> VALID_TYPES = Arrays.asList(

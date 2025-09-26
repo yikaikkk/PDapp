@@ -14,4 +14,12 @@ public interface UserService extends IService<User> {
      * @return 用户ID，如果用户不存在则返回null
      */
     Integer getUserIdByUsername(String username);
+    
+    /**
+     * 更新用户头像
+     * @param username 用户名
+     * @param avatarUrl 头像URL
+     * @return 是否更新成功
+     */
+    boolean updateUserAvatar(String username, String avatarUrl);
 }

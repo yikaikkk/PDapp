@@ -2,12 +2,16 @@ package com.app.backend.controller;
 
 import com.app.backend.common.JwtUtils;
 import com.app.backend.common.ValidationUtils;
+import com.app.backend.enums.FilePathEnum;
 import com.app.backend.exception.UnauthorizedException;
 import com.app.backend.service.UserService;
+import com.app.backend.strategy.context.UploadStrategyContext;
 import com.app.backend.vo.LoginVO;
 import com.app.backend.vo.RegisterVO;
+import com.app.backend.vo.ResultVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -21,6 +25,9 @@ public class UserController {
     
     @Autowired
     private JwtUtils jwtUtils;
+    
+    @Autowired
+    private UploadStrategyContext uploadStrategyContext;
     
     @PostMapping("/register")
     public Map<String, Object> register(@RequestBody RegisterVO registerRequest) {
@@ -96,5 +103,41 @@ public class UserController {
         userInfo.put("username", username);
         userInfo.put("role", "user"); // 实际项目中应该从数据库获取用户角色
         return userInfo;
+    }
+    
+    /**
+     * 上传用户头像
+     */
+    @PostMapping("/avatar")
+    public ResultVO<String> uploadAvatar(MultipartFile file, @RequestAttribute("username") String username) {
+        if (file == null || file.isEmpty()) {
+            return ResultVO.fail("请选择要上传的头像文件");
+        }
+        
+        // 验证文件类型
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            return ResultVO.fail("只能上传图片文件");
+        }
+        
+        // 验证文件大小（限制5MB）
+        if (file.getSize() > 5 * 1024 * 1024) {
+            return ResultVO.fail("头像文件大小不能超过5MB");
+        }
+        
+        try {
+            // 上传头像到文件服务器
+            String avatarUrl = uploadStrategyContext.executeUploadStrategy(file, FilePathEnum.AVATAR.getPath());
+            
+            // 更新用户头像URL到数据库
+            boolean updateSuccess = userService.updateUserAvatar(username, avatarUrl);
+            if (!updateSuccess) {
+                return ResultVO.fail("头像上传失败，请稍后重试");
+            }
+            
+            return ResultVO.ok(avatarUrl, "头像上传成功");
+        } catch (Exception e) {
+            return ResultVO.fail("头像上传失败: " + e.getMessage());
+        }
     }
 }

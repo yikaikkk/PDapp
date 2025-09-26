@@ -1,5 +1,6 @@
 package com.app.backend.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.app.backend.entity.User;
 import com.app.backend.mapper.UserMapper;
@@ -63,5 +64,20 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         }
         User user = userMapper.findByUsername(username);
         return user != null ? user.getId().intValue() : null;
+    }
+    
+    @Override
+    public boolean updateUserAvatar(String username, String avatarUrl) {
+        if (username == null || username.trim().isEmpty() || avatarUrl == null || avatarUrl.trim().isEmpty()) {
+            return false;
+        }
+        
+        UpdateWrapper<User> updateWrapper = new UpdateWrapper<>();
+        updateWrapper.eq("username", username)
+                    .set("avatar", avatarUrl)
+                    .set("update_time", LocalDateTime.now());
+        
+        int result = userMapper.update(null, updateWrapper);
+        return result > 0;
     }
 }
