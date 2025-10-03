@@ -40,6 +40,11 @@ public class Comment implements Serializable {
      */
     private Integer isDelete;
 
+    /**
+     * 用户名
+     */
+    private String userName;
+
     
     /**
      * 评论时间

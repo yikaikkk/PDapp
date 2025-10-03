@@ -30,7 +30,7 @@ public class CommentController {
      * @return 评论结果
      */
     @PostMapping("/add")
-    public ResultVO<String> addComment(@RequestBody CommentVO commentVO) {
+    public ResultVO<String> addComment(@RequestBody CommentVO commentVO, @RequestAttribute("username") String username) {
         try {
             // 参数校验
             if (commentVO.getArticleId() == null) {
@@ -44,6 +44,7 @@ public class CommentController {
             if (commentVO.getUserId() == null) {
                 return ResultVO.fail("用户不存在");
             }
+
             
             // 验证博文是否存在
             if (articleService.getById(commentVO.getArticleId()) == null) {
@@ -56,6 +57,7 @@ public class CommentController {
             comment.setArticleId(commentVO.getArticleId());
             comment.setCommentContent(commentVO.getCommentContent().trim());
             comment.setIsDelete(0); // 未删除
+            comment.setUserName(username);
             comment.setCreateTime(LocalDateTime.now());
             comment.setUpdateTime(LocalDateTime.now());
             
