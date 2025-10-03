@@ -4,7 +4,9 @@ import com.app.backend.dto.PagedArticleDTO;
 import com.app.backend.entity.ArticleImage;
 import com.app.backend.enums.FilePathEnum;
 import com.app.backend.service.ArticleImageService;
+import com.app.backend.service.LikeService;
 import com.app.backend.strategy.context.UploadStrategyContext;
+import com.app.backend.vo.ArticleDetailVO;
 import com.app.backend.vo.ArticleVO;
 import com.app.backend.vo.PagedArticleVO;
 import com.app.backend.vo.ResultVO;
@@ -14,6 +16,7 @@ import com.app.backend.exception.UnauthorizedException;
 import com.app.backend.service.ArticleService;
 import com.app.backend.service.UserService;
 import org.checkerframework.checker.units.qual.A;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -39,6 +42,9 @@ public class ArticleController {
 
     @Autowired
     private ArticleImageService articleImageService;
+
+    @Autowired
+    private LikeService likeService;
     
     /**
      * 从请求中获取用户ID
@@ -63,7 +69,7 @@ public class ArticleController {
 //        Integer authorId = getCurrentUserId(username);
 
         
-        int articleId = articleService.createArticle(articleVO.getTitle(), articleVO.getName(), articleVO.getLatitude(), articleVO.getLongitude(),
+        Long articleId = articleService.createArticle(articleVO.getTitle(), articleVO.getName(), articleVO.getLatitude(), articleVO.getLongitude(),
                 articleVO.getType(), articleVO.getDescription(), articleVO.getTips(), username,articleVO.getAddress(),articleVO.getNotice(),articleVO.getTools());
 
         int idx=1;
@@ -117,12 +123,20 @@ public class ArticleController {
                                                 @RequestParam(defaultValue = "1") Integer page,
                                                 @RequestParam(defaultValue = "10") Integer size) {
         IPage<PagedArticleDTO> articlePage = articleService.getArticlesPaged(pagedArticleVO);
-        
+
+        List<Long> articleIds=articlePage.getRecords().stream().map(PagedArticleDTO::getId).toList();
+
+        Map<Long,Long> articleLikes=likeService.getLikeCountByArticleList(articleIds);
+
+        for(PagedArticleDTO pagedArticleDTO : articlePage.getRecords()){
+            Long count=articleLikes.get(pagedArticleDTO.getId());
+            pagedArticleDTO.setLikeCount(count);
+        }
 //        Map<String, Object> response = new HashMap<>();
 //        if (articlePage != null) {
 //            response.put("articles", articlePage.getRecords());
 //            response.put("total", articlePage.getTotal());
-//            response.put("pages", articlePage.getPages());
+//            response.put("pages", articlePage.getPages());    
 //            response.put("current", articlePage.getCurrent());
 //            response.put("size", articlePage.getSize());
 //            response.put("success", true);
@@ -238,19 +252,26 @@ public class ArticleController {
      * 获取博文详情
      */
     @GetMapping("/{id}")
-    public Map<String, Object> getArticleById(@PathVariable Integer id) {
+    public ArticleDetailVO getArticleById(@PathVariable Integer id) {
         Article article = articleService.getById(id);
+        List<Long> articleId=new ArrayList<>();
+        articleId.add(article.getId());
+        Map<Long,Long> articleLikeCount=likeService.getLikeCountByArticleList(articleId);
+        ArticleDetailVO articleDetailVO=new ArticleDetailVO();
+
+        BeanUtils.copyProperties(article,articleDetailVO);
+        articleDetailVO.setLikeCount(articleLikeCount.get(article.getId()));
+
+//        Map<String, Object> response = new HashMap<>();
+//        if (article != null) {
+//            response.put("article", article);
+//            response.put("success", true);
+//        } else {
+//            response.put("message", "博文不存在");
+//            response.put("success", false);
+//        }
         
-        Map<String, Object> response = new HashMap<>();
-        if (article != null) {
-            response.put("article", article);
-            response.put("success", true);
-        } else {
-            response.put("message", "博文不存在");
-            response.put("success", false);
-        }
-        
-        return response;
+        return articleDetailVO;
     }
 
 

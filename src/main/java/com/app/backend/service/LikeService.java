@@ -1,8 +1,12 @@
 package com.app.backend.service;
 
+import com.app.backend.dto.ArticleLikeDTO;
 import com.app.backend.vo.LikeVO;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.app.backend.entity.Like;
+
+import java.util.List;
+import java.util.Map;
 
 /**
  * 点赞服务接口
@@ -55,4 +59,11 @@ public interface LikeService extends IService<Like> {
      * @param likeVO
      */
     void submitLikeMessage(LikeVO likeVO);
+
+    /**
+     * 批量获取博文的点赞数量
+     * @param articleId 博文ID
+     * @return 点赞数量
+     */
+    Map<Long,Long> getLikeCountByArticleList(List<Long> articleId);
 }

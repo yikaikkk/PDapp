@@ -14,7 +14,7 @@ public class Article implements Serializable {
     private static final long serialVersionUID = 1L;
 
     @TableId(type = IdType.AUTO)
-    private Integer id;
+    private Long id;
     
     /**
      * 博文标题

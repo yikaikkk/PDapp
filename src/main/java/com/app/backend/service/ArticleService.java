@@ -24,7 +24,7 @@ public interface ArticleService extends IService<Article> {
      * @param authorId 作者ID
      * @return 插入记录的主键ID，创建失败返回null
      */
-    Integer createArticle(String title, String name, BigDecimal latitude, BigDecimal longitude, 
+    Long createArticle(String title, String name, BigDecimal latitude, BigDecimal longitude,
                          String type, String description, String tips, String authorId, String address,String notice,String tools);
     
     /**
@@ -43,9 +43,6 @@ public interface ArticleService extends IService<Article> {
     
     /**
      * 分页查询博文（按类型）
-     * @param page 页码
-     * @param size 每页大小
-     * @param type 博文类型
      * @return 分页结果
      */
     IPage<PagedArticleDTO> getArticlesPaged(PagedArticleVO pagedArticleVO);

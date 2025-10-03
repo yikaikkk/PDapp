@@ -43,7 +43,7 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
     );
     
     @Override
-    public Integer createArticle(String title, String name, BigDecimal latitude, BigDecimal longitude, 
+    public Long createArticle(String title, String name, BigDecimal latitude, BigDecimal longitude,
                                 String type, String description, String tips, String authorId, String address,String notice,String tools) {
         // 验证必填参数
         if (title == null || title.trim().isEmpty()) {
@@ -117,11 +117,11 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
         }
 
         if(pagedArticleVO.getTitle() != null && !pagedArticleVO.getTitle().isEmpty()){
-            articleLambdaQueryWrapper.eq(Article::getType,pagedArticleVO.getType());
+            articleLambdaQueryWrapper.like(Article::getTitle, pagedArticleVO.getTitle());
         }
 
         if(pagedArticleVO.getAddress() != null && !pagedArticleVO.getAddress().isEmpty()){
-            articleLambdaQueryWrapper.eq(Article::getType,pagedArticleVO.getType());
+            articleLambdaQueryWrapper.like(Article::getAddress, pagedArticleVO.getAddress());
         }
 
 
@@ -148,6 +148,7 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
             tempPagedArticleDTO.setNotice(article.getNotice());
             tempPagedArticleDTO.setTitle(article.getTitle());
             tempPagedArticleDTO.setTools(article.getTools());
+            tempPagedArticleDTO.setId(article.getId());
             pagedArticleDTOList.add(tempPagedArticleDTO);
         }
 

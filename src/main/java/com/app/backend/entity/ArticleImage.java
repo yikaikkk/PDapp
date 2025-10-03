@@ -6,7 +6,7 @@ import lombok.Data;
 @Data
 @TableName("pd_article_image")
 public class ArticleImage {
-    private Integer articleId;
+    private Long articleId;
     private String imageUrl;
     private Integer orderIndex;
 }

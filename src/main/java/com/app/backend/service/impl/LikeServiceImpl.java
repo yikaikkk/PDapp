@@ -1,6 +1,7 @@
 package com.app.backend.service.impl;
 
 import com.alibaba.fastjson2.JSON;
+import com.app.backend.dto.ArticleLikeDTO;
 import com.app.backend.entity.Like;
 import com.app.backend.mapper.LikeMapper;
 import com.app.backend.service.LikeService;
@@ -18,6 +19,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static com.app.backend.constant.RabbitMQConstant.LIKE_EXCHANGE;
@@ -251,4 +255,30 @@ public class LikeServiceImpl extends ServiceImpl<LikeMapper, Like> implements Li
         
         return success;
     }
+
+    @Override
+    public Map<Long,Long> getLikeCountByArticleList(List<Long> articleIds) {
+        Map<Long,Long> result= new HashMap<>();
+        // 优先从Redis获取
+        for(Long id : articleIds){
+            try {
+                String articleLikedSetKey = "article:liked:users:" + id;
+                //判断redis是否存在key
+                if (!redisTemplate.hasKey(articleLikedSetKey)) {
+                    result.put(id, 0L);
+                    continue;
+                }
+                Long size = redisTemplate.opsForSet().size(articleLikedSetKey);
+                result.put(id, size != null ? size : 0L);
+            } catch (Exception e) {
+                log.warn("从Redis获取博文点赞数失败，fallback到数据库查询, articleId: {}", id, e);
+                // Redis未命中，从数据库查询
+                Integer count = likeMapper.countLikesByArticleId(id.intValue());
+                result.put(id, count != null ? count.longValue() : 0L);
+            }
+        }
+        return result;
+    }
+
+
 }
