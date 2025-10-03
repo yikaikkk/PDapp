@@ -4,7 +4,7 @@ import lombok.Data;
 
 @Data
 public class LikeVO {
-    private Long uerId;
+    private Long userId;
     private Integer articleId;
 
     //1 为点赞 0为取消

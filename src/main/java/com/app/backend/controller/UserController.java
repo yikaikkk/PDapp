@@ -1,7 +1,9 @@
 package com.app.backend.controller;
 
 import com.app.backend.common.JwtUtils;
+import com.app.backend.common.PasswordUtils;
 import com.app.backend.common.ValidationUtils;
+import com.app.backend.entity.User;
 import com.app.backend.enums.FilePathEnum;
 import com.app.backend.exception.UnauthorizedException;
 import com.app.backend.service.UserService;
@@ -82,8 +84,8 @@ public class UserController {
             throw new UnauthorizedException("用户名或密码不能为空");
         }
         
-        boolean isAuthenticated = userService.login(loginRequest.getUsername(), loginRequest.getPassword());
-        if (!isAuthenticated) {
+        User isAuthenticatedUser = userService.login(loginRequest.getUsername(), loginRequest.getPassword());
+        if (isAuthenticatedUser==null||!PasswordUtils.matches(loginRequest.getPassword(), isAuthenticatedUser.getPassword())) {
             throw new UnauthorizedException("用户名或密码错误");
         }
         
@@ -91,6 +93,9 @@ public class UserController {
         String token = jwtUtils.generateToken(loginRequest.getUsername());
         
         Map<String, Object> response = new HashMap<>();
+        response.put("id",isAuthenticatedUser.getId());
+        response.put("userName",isAuthenticatedUser.getNickname());
+        response.put("avtar",isAuthenticatedUser.getAvatar());
         response.put("token", token);
         response.put("message", "登录成功");
         

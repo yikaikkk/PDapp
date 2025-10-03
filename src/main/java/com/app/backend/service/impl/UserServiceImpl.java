@@ -23,13 +23,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
     
     @Override
-    public boolean login(String username, String password) {
+    public User login(String username, String password) {
         User user = userMapper.findByUsername(username);
-        if (user == null) {
-            return false;
-        }
         // 使用密码工具类验证密码
-        return PasswordUtils.matches(password, user.getPassword());
+        return user;
+//        return PasswordUtils.matches(password, user.getPassword());
     }
     
     @Override

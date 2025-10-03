@@ -43,6 +43,10 @@ public class LikeController {
     public ResultVO<?> toggleLike(@RequestBody LikeVO likeVO,
                                                     @RequestAttribute("username") String username) {
         try {
+            // 设置用户ID
+            Long userId = getCurrentUserId(username);
+            likeVO.setUserId(userId);
+            
             likeService.toggleLike(likeVO);
         } catch (Exception e) {
             return ResultVO.fail("操作失败: " + e.getMessage());

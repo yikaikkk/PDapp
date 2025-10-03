@@ -3,7 +3,6 @@ package com.app.backend.service.impl;
 import com.alibaba.fastjson2.JSON;
 import com.app.backend.entity.Like;
 import com.app.backend.mapper.LikeMapper;
-import com.app.backend.service.LikeCacheService;
 import com.app.backend.service.LikeService;
 import com.app.backend.vo.LikeVO;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -14,10 +13,12 @@ import org.springframework.amqp.core.MessageProperties;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Set;
 
 import static com.app.backend.constant.RabbitMQConstant.LIKE_EXCHANGE;
 
@@ -35,7 +36,7 @@ public class LikeServiceImpl extends ServiceImpl<LikeMapper, Like> implements Li
     private RabbitTemplate rabbitTemplate;
     
     @Autowired
-    private LikeCacheService likeCacheService;
+    private RedisTemplate<String, Object> redisTemplate;
     
     @Override
     public void toggleLike(LikeVO likeVO) {
@@ -47,17 +48,39 @@ public class LikeServiceImpl extends ServiceImpl<LikeMapper, Like> implements Li
 
     @Override
     public void submitLikeMessage(LikeVO likeVO){
-        //检查是否存在该点赞
+        // 先更新Redis缓存（使用Set保存点赞关系）
+        try {
+            String userLikeSetKey = "user:liked:articles:" + likeVO.getUserId();
+            String articleLikedSetKey = "article:liked:users:" + likeVO.getArticleId();
+
+            if(likeVO.getOperationType()==1) {
+                // 将文章ID添加到用户点赞的文章集合中
+                redisTemplate.opsForSet().add(userLikeSetKey, likeVO.getArticleId().toString());
+                // 将用户ID添加到文章被点赞的用户集合中
+                redisTemplate.opsForSet().add(articleLikedSetKey, likeVO.getUserId().toString());
+                log.debug("已更新Redis缓存 - 用户{}点赞了文章{}, 已添加到Set中", likeVO.getUserId(), likeVO.getArticleId());
+            }else {
+                redisTemplate.opsForSet().remove(userLikeSetKey, likeVO.getArticleId().toString());
+                // 将用户ID添加到文章被点赞的用户集合中
+                redisTemplate.opsForSet().remove(articleLikedSetKey, likeVO.getUserId().toString());
+                log.debug("已更新Redis缓存 - 用户{}取消点赞了文章{}, 已删除", likeVO.getUserId(), likeVO.getArticleId());
+
+            }
+        } catch (Exception e) {
+            log.error("更新Redis点赞缓存失败", e);
+        }
+        
+        // 再更新数据库
         LambdaQueryWrapper<Like> likeLambdaQueryWrapper=new LambdaQueryWrapper<>();
         likeLambdaQueryWrapper.eq(Like::getArticleId,likeVO.getArticleId());
-        likeLambdaQueryWrapper.eq(Like::getUserId,likeVO.getUerId());
+        likeLambdaQueryWrapper.eq(Like::getUserId,likeVO.getUserId());
 
         Like like=this.getOne(likeLambdaQueryWrapper);
         if(like==null){
             Like likeToSave =new Like();
             likeToSave.setStatus(1);
             likeToSave.setArticleId(likeVO.getArticleId());
-            likeToSave.setUserId(likeVO.getUerId());
+            likeToSave.setUserId(likeVO.getUserId());
             likeToSave.setCreateTime(LocalDateTime.now());
             likeToSave.setUpdateTime(LocalDateTime.now());
             this.save(likeToSave);
@@ -67,20 +90,6 @@ public class LikeServiceImpl extends ServiceImpl<LikeMapper, Like> implements Li
                 like.setUpdateTime(LocalDateTime.now());
                 this.updateById(like);
             }
-        }
-        
-        // 更新缓存
-        try {
-            Integer userLikeCount = getLikeCountByUser(likeVO.getUerId());
-            Integer articleLikeCount = getLikeCountByArticle(likeVO.getArticleId());
-            
-            likeCacheService.updateUserLikeCount(likeVO.getUerId(), userLikeCount);
-            likeCacheService.updateArticleLikeCount(likeVO.getArticleId(), articleLikeCount);
-            
-            log.debug("已更新缓存 - 用户{}: {}点赞, 博文{}: {}点赞", 
-                    likeVO.getUerId(), userLikeCount, likeVO.getArticleId(), articleLikeCount);
-        } catch (Exception e) {
-            log.error("更新点赞缓存失败", e);
         }
     }
 
@@ -102,17 +111,18 @@ public class LikeServiceImpl extends ServiceImpl<LikeMapper, Like> implements Li
             return 0;
         }
         
-        // 优先从缓存获取
+        // 优先从Redis获取
         try {
-            Integer cachedCount = likeCacheService.getArticleLikeCount(articleId);
-            if (cachedCount != null && cachedCount >= 0) {
-                return cachedCount;
+            String articleLikedSetKey = "article:liked:users:" + articleId;
+            Long size = redisTemplate.opsForSet().size(articleLikedSetKey);
+            if (size != null) {
+                return size.intValue();
             }
         } catch (Exception e) {
-            log.warn("从缓存获取博文点赞数失败，fallback到数据库查询, articleId: {}", articleId, e);
+            log.warn("从Redis获取博文点赞数失败，fallback到数据库查询, articleId: {}", articleId, e);
         }
         
-        // 缓存未命中，从数据库查询
+        // Redis未命中，从数据库查询
         return likeMapper.countLikesByArticleId(articleId);
     }
     
@@ -122,17 +132,18 @@ public class LikeServiceImpl extends ServiceImpl<LikeMapper, Like> implements Li
             return 0;
         }
         
-        // 优先从缓存获取
+        // 优先从Redis获取
         try {
-            Integer cachedCount = likeCacheService.getUserLikeCount(userId);
-            if (cachedCount != null && cachedCount >= 0) {
-                return cachedCount;
+            String userLikeSetKey = "user:liked:articles:" + userId;
+            Long size = redisTemplate.opsForSet().size(userLikeSetKey);
+            if (size != null) {
+                return size.intValue();
             }
         } catch (Exception e) {
-            log.warn("从缓存获取用户点赞数失败，fallback到数据库查询, userId: {}", userId, e);
+            log.warn("从Redis获取用户点赞数失败，fallback到数据库查询, userId: {}", userId, e);
         }
         
-        // 缓存未命中，从数据库查询
+        // Redis未命中，从数据库查询
         return likeMapper.countLikesByUserId(userId);
     }
     
@@ -143,6 +154,32 @@ public class LikeServiceImpl extends ServiceImpl<LikeMapper, Like> implements Li
             return false;
         }
         
+        // 先更新Redis缓存（使用Set保存点赞关系）
+        try {
+            String userLikeSetKey = "user:liked:articles:" + userId;
+            String articleLikedSetKey = "article:liked:users:" + articleId;
+            
+            // 检查是否已经点赞
+            Boolean isMember = redisTemplate.opsForSet().isMember(userLikeSetKey, articleId.toString());
+            if (isMember != null && isMember) {
+                // 已经点赞，抛出异常
+                throw new RuntimeException("用户已点赞该文章");
+            }
+            
+            // 将文章ID添加到用户点赞的文章集合中
+            redisTemplate.opsForSet().add(userLikeSetKey, articleId.toString());
+            // 将用户ID添加到文章被点赞的用户集合中
+            redisTemplate.opsForSet().add(articleLikedSetKey, userId.toString());
+            
+            log.debug("已更新Redis缓存 - 用户{}点赞了文章{}, 已添加到Set中", userId, articleId);
+        } catch (RuntimeException e) {
+            log.error("用户已点赞该文章: userId={}, articleId={}", userId, articleId);
+            throw e; // 重新抛出业务异常
+        } catch (Exception e) {
+            log.error("更新Redis点赞缓存失败", e);
+        }
+        
+        // 再更新数据库
         boolean success = false;
         
         // 查询现有记录
@@ -160,6 +197,12 @@ public class LikeServiceImpl extends ServiceImpl<LikeMapper, Like> implements Li
             int result = likeMapper.insert(newLike);
             success = result > 0;
         } else {
+            // 检查是否已经点赞
+            if (existingLike.getStatus() == 1) {
+                // 已经点赞，抛出异常
+                throw new RuntimeException("用户已点赞该文章");
+            }
+            
             // 更新现有记录状态
             UpdateWrapper<Like> updateWrapper = new UpdateWrapper<>();
             updateWrapper.eq("user_id", userId)
@@ -169,22 +212,6 @@ public class LikeServiceImpl extends ServiceImpl<LikeMapper, Like> implements Li
             
             int result = likeMapper.update(null, updateWrapper);
             success = result > 0;
-        }
-        
-        // 如果操作成功，更新缓存
-        if (success) {
-            try {
-                Integer userLikeCount = likeMapper.countLikesByUserId(userId);
-                Integer articleLikeCount = likeMapper.countLikesByArticleId(articleId);
-                
-                likeCacheService.updateUserLikeCount(userId, userLikeCount);
-                likeCacheService.updateArticleLikeCount(articleId, articleLikeCount);
-                
-                log.debug("点赞成功并更新缓存 - 用户{}: {}点赞, 博文{}: {}点赞", 
-                        userId, userLikeCount, articleId, articleLikeCount);
-            } catch (Exception e) {
-                log.error("点赞后更新缓存失败", e);
-            }
         }
         
         return success;
@@ -197,6 +224,22 @@ public class LikeServiceImpl extends ServiceImpl<LikeMapper, Like> implements Li
             return false;
         }
         
+        // 先更新Redis缓存
+        try {
+            String userLikeSetKey = "user:liked:articles:" + userId;
+            String articleLikedSetKey = "article:liked:users:" + articleId;
+            
+            // 从用户点赞的文章集合中移除文章ID
+            redisTemplate.opsForSet().remove(userLikeSetKey, articleId.toString());
+            // 从文章被点赞的用户集合中移除用户ID
+            redisTemplate.opsForSet().remove(articleLikedSetKey, userId.toString());
+            
+            log.debug("已更新Redis缓存 - 用户{}取消点赞文章{}, 已从Set中移除", userId, articleId);
+        } catch (Exception e) {
+            log.error("更新Redis取消点赞缓存失败", e);
+        }
+        
+        // 再更新数据库
         UpdateWrapper<Like> updateWrapper = new UpdateWrapper<>();
         updateWrapper.eq("user_id", userId)
                     .eq("article_id", articleId)
@@ -205,22 +248,6 @@ public class LikeServiceImpl extends ServiceImpl<LikeMapper, Like> implements Li
         
         int result = likeMapper.update(null, updateWrapper);
         boolean success = result > 0;
-        
-        // 如果操作成功，更新缓存
-        if (success) {
-            try {
-                Integer userLikeCount = likeMapper.countLikesByUserId(userId);
-                Integer articleLikeCount = likeMapper.countLikesByArticleId(articleId);
-                
-                likeCacheService.updateUserLikeCount(userId, userLikeCount);
-                likeCacheService.updateArticleLikeCount(articleId, articleLikeCount);
-                
-                log.debug("取消点赞成功并更新缓存 - 用户{}: {}点赞, 博文{}: {}点赞", 
-                        userId, userLikeCount, articleId, articleLikeCount);
-            } catch (Exception e) {
-                log.error("取消点赞后更新缓存失败", e);
-            }
-        }
         
         return success;
     }
