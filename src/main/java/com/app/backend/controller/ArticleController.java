@@ -2,9 +2,9 @@ package com.app.backend.controller;
 
 import com.app.backend.dto.PagedArticleDTO;
 import com.app.backend.entity.ArticleImage;
+import com.app.backend.entity.Comment;
 import com.app.backend.enums.FilePathEnum;
-import com.app.backend.service.ArticleImageService;
-import com.app.backend.service.LikeService;
+import com.app.backend.service.*;
 import com.app.backend.strategy.context.UploadStrategyContext;
 import com.app.backend.vo.ArticleDetailVO;
 import com.app.backend.vo.ArticleVO;
@@ -13,8 +13,6 @@ import com.app.backend.vo.ResultVO;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.app.backend.entity.Article;
 import com.app.backend.exception.UnauthorizedException;
-import com.app.backend.service.ArticleService;
-import com.app.backend.service.UserService;
 import org.checkerframework.checker.units.qual.A;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,6 +43,10 @@ public class ArticleController {
 
     @Autowired
     private LikeService likeService;
+
+    @Autowired
+    private CommentService commentService;
+
     
     /**
      * 从请求中获取用户ID
@@ -252,7 +254,7 @@ public class ArticleController {
      * 获取博文详情
      */
     @GetMapping("/{id}")
-    public ArticleDetailVO getArticleById(@PathVariable Integer id) {
+    public ArticleDetailVO getArticleById(@PathVariable Long id) {
         Article article = articleService.getById(id);
         List<Long> articleId=new ArrayList<>();
         articleId.add(article.getId());
@@ -261,6 +263,9 @@ public class ArticleController {
 
         BeanUtils.copyProperties(article,articleDetailVO);
         articleDetailVO.setLikeCount(articleLikeCount.get(article.getId()));
+
+        List<Comment> comments=commentService.getCommentsByArticleId(id);
+        articleDetailVO.setComments(comments);
 
 //        Map<String, Object> response = new HashMap<>();
 //        if (article != null) {
