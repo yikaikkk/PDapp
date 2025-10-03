@@ -20,6 +20,7 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comment> impl
     public List<Comment> getCommentsByArticleId(Long articleId){
         LambdaQueryWrapper<Comment> commentLambdaQueryWrapper=new LambdaQueryWrapper<>();
         commentLambdaQueryWrapper.eq(Comment::getArticleId,articleId);
+        commentLambdaQueryWrapper.eq(Comment::getIsDelete,0);
         List<Comment> comments=this.list(commentLambdaQueryWrapper);
         return comments;
     }

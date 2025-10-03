@@ -23,12 +23,12 @@ public class Comment implements Serializable {
     /**
      * 评论用户Id
      */
-    private Integer userId;
+    private Long userId;
     
     /**
      * 评论博文id
      */
-    private Integer articleId;
+    private Long articleId;
     
     /**
      * 评论内容
@@ -39,11 +39,7 @@ public class Comment implements Serializable {
      * 是否删除 0否 1是
      */
     private Integer isDelete;
-    
-    /**
-     * 是否审核 1是 0否
-     */
-    private Integer isReview;
+
     
     /**
      * 评论时间
