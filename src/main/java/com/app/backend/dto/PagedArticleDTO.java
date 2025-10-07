@@ -12,4 +12,6 @@ public class PagedArticleDTO extends Article {
 
     private Long likeCount;
 
+    private String authorName;
+
 }

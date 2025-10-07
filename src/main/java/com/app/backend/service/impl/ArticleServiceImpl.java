@@ -2,7 +2,11 @@ package com.app.backend.service.impl;
 
 import com.app.backend.dto.PagedArticleDTO;
 import com.app.backend.entity.ArticleImage;
+import com.app.backend.entity.Collect;
+import com.app.backend.entity.User;
 import com.app.backend.mapper.ArticleImageMapper;
+import com.app.backend.mapper.CollectMapper;
+import com.app.backend.mapper.UserMapper;
 import com.app.backend.vo.PagedArticleVO;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
@@ -18,10 +22,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -36,6 +37,12 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
 
     @Autowired
     private RabbitTemplate rabbitTemplate;
+
+    @Autowired
+    private UserMapper userMapper;
+
+    @Autowired
+    private CollectMapper collectMapper;
     
     // 支持的博文类型
     private static final List<String> VALID_TYPES = Arrays.asList(
@@ -44,7 +51,7 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
     
     @Override
     public Long createArticle(String title, String name, BigDecimal latitude, BigDecimal longitude,
-                                String type, String description, String tips, String authorId, String address,String notice,String tools) {
+                                String type, String description, String tips, Long authorId, String address,String notice,String tools) {
         // 验证必填参数
         if (title == null || title.trim().isEmpty()) {
             return null;
@@ -93,11 +100,34 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
     }
     
     @Override
-    public List<Article> getArticlesByAuthor(Integer authorId) {
-        if (authorId == null) {
+    public IPage<Article> getArticlesByAuthor(PagedArticleVO pagedArticleVO) {
+        if (pagedArticleVO.getAuthorId() == null) {
             return null;
         }
-        return articleMapper.findByAuthorId(authorId);
+
+        IPage<PagedArticleDTO> result=new Page<>();
+        Page<Article> articlePage=new Page<>(pagedArticleVO.getPage(),pagedArticleVO.getSize());
+        LambdaQueryWrapper<Article> articleLambdaQueryWrapper=new LambdaQueryWrapper<>();
+        articleLambdaQueryWrapper.eq(Article::getAuthorId,pagedArticleVO.getAuthorId());
+
+        IPage<Article> myArticles=articleMapper.selectPage(articlePage,articleLambdaQueryWrapper);
+
+        return myArticles;
+    }
+
+    public IPage<Article> getCollectsByAuthor(PagedArticleVO pagedArticleVO){
+        LambdaQueryWrapper<Collect> collectLambdaQueryWrapper=new LambdaQueryWrapper<>();
+        collectLambdaQueryWrapper.eq(Collect::getUserId,pagedArticleVO.getAuthorId());
+        collectLambdaQueryWrapper.eq(Collect::getStatus,1);
+        List<Integer> articleId=collectMapper.selectList(collectLambdaQueryWrapper).stream().map(Collect::getArticleId).toList();
+
+        Page<Article> articlePage=new Page<>(pagedArticleVO.getPage(),pagedArticleVO.getSize());
+
+        LambdaQueryWrapper<Article> articleLambdaQueryWrapper=new LambdaQueryWrapper<>();
+        articleLambdaQueryWrapper.in(Article::getId,articleId);
+
+        IPage<Article> result=articleMapper.selectPage(articlePage,articleLambdaQueryWrapper);
+        return result;
     }
     
     @Override
@@ -126,6 +156,17 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
 
 
         IPage<Article> articles=articleMapper.selectPage(articlePage,articleLambdaQueryWrapper);
+
+        List<Long> usersId=articles.getRecords()
+                .stream()
+                .map(article -> article.getAuthorId())
+                .distinct()
+                .collect(Collectors.toList());
+        LambdaQueryWrapper<User> userLambdaQueryWrapper=new LambdaQueryWrapper<>();
+        userLambdaQueryWrapper.in(User::getId,usersId);
+        List<User> users=userMapper.selectList(userLambdaQueryWrapper);
+        Map<Long,User> userMap=users.stream().collect(Collectors.toMap(User::getId, user -> user));
+
         List<PagedArticleDTO> pagedArticleDTOList=new ArrayList<>();
         for(Article article: articles.getRecords()){
             LambdaQueryWrapper<ArticleImage> articleImageLambdaQueryWrapper=new LambdaQueryWrapper<>();
@@ -149,6 +190,7 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
             tempPagedArticleDTO.setTitle(article.getTitle());
             tempPagedArticleDTO.setTools(article.getTools());
             tempPagedArticleDTO.setId(article.getId());
+            tempPagedArticleDTO.setAuthorName(userMap.get(article.getAuthorId()).getNickname());
             pagedArticleDTOList.add(tempPagedArticleDTO);
         }
 

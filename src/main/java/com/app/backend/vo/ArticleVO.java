@@ -19,4 +19,5 @@ public class ArticleVO {
     private String tools;
     private String address;
     private List<String> accessUrl;
+    private Long userId;
 }

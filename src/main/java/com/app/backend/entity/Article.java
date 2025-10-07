@@ -54,7 +54,7 @@ public class Article implements Serializable {
     /**
      * 作者ID
      */
-    private String authorId;
+    private Long authorId;
 
     private String notice;
 

@@ -65,14 +65,13 @@ public class ArticleController {
      * 创建博文
      */
     @PostMapping("/create")
-    public Map<String, Object> createArticle(@RequestBody ArticleVO articleVO,
-                                           @RequestAttribute("username") String username) {
+    public Map<String, Object> createArticle(@RequestBody ArticleVO articleVO) {
         // 从 JWT token 中解析出的 username 获取真实的用户ID
 //        Integer authorId = getCurrentUserId(username);
 
         
         Long articleId = articleService.createArticle(articleVO.getTitle(), articleVO.getName(), articleVO.getLatitude(), articleVO.getLongitude(),
-                articleVO.getType(), articleVO.getDescription(), articleVO.getTips(), username,articleVO.getAddress(),articleVO.getNotice(),articleVO.getTools());
+                articleVO.getType(), articleVO.getDescription(), articleVO.getTips(), articleVO.getUserId(),articleVO.getAddress(),articleVO.getNotice(),articleVO.getTools());
 
         int idx=1;
         List<ArticleImage> articleImagesToSave=new ArrayList<>();
@@ -153,24 +152,24 @@ public class ArticleController {
     /**
      * 获取我的博文列表
      */
-    @GetMapping("/my")
-    public Map<String, Object> getMyArticles(@RequestAttribute("username") String username,
+    @PostMapping("/myArticle")
+    public IPage<Article> getMyArticles(@RequestBody  PagedArticleVO pagedArticleVO,
                                            @RequestParam(defaultValue = "1") Integer page,
                                            @RequestParam(defaultValue = "10") Integer size) {
-        // 从 JWT token 中解析出的 username 获取真实的用户ID
-        Integer authorId = getCurrentUserId(username);
-        
-        IPage<Article> articlePage = articleService.getArticlesByAuthorPaged(page, size, authorId);
-        
-        Map<String, Object> response = new HashMap<>();
-        response.put("articles", articlePage.getRecords());
-        response.put("total", articlePage.getTotal());
-        response.put("pages", articlePage.getPages());
-        response.put("current", articlePage.getCurrent());
-        response.put("size", articlePage.getSize());
-        response.put("success", true);
-        
-        return response;
+
+        return articleService.getArticlesByAuthor(pagedArticleVO);
+    }
+
+
+    /**
+     * 获取我的博文列表
+     */
+    @PostMapping("/myCollect")
+    public IPage<Article> getMyACollect(@RequestBody  PagedArticleVO pagedArticleVO,
+                                        @RequestParam(defaultValue = "1") Integer page,
+                                        @RequestParam(defaultValue = "10") Integer size) {
+
+        return articleService.getCollectsByAuthor(pagedArticleVO);
     }
     
     /**

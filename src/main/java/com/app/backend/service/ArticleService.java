@@ -25,7 +25,7 @@ public interface ArticleService extends IService<Article> {
      * @return 插入记录的主键ID，创建失败返回null
      */
     Long createArticle(String title, String name, BigDecimal latitude, BigDecimal longitude,
-                         String type, String description, String tips, String authorId, String address,String notice,String tools);
+                         String type, String description, String tips, Long authorId, String address,String notice,String tools);
     
     /**
      * 根据类型查询博文列表
@@ -36,11 +36,17 @@ public interface ArticleService extends IService<Article> {
     
     /**
      * 根据作者ID查询博文列表
-     * @param authorId 作者ID
      * @return 博文列表
      */
-    List<Article> getArticlesByAuthor(Integer authorId);
-    
+    IPage<Article> getArticlesByAuthor(PagedArticleVO pagedArticleVO);
+
+    /**
+     * 根据作者ID查询收藏列表
+     * @return 博文列表
+     */
+    IPage<Article> getCollectsByAuthor(PagedArticleVO pagedArticleVO);
+
+
     /**
      * 分页查询博文（按类型）
      * @return 分页结果

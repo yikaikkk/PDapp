@@ -10,4 +10,5 @@ public class PagedArticleVO {
     private String address;
     private String title;
     private String type;
+    private String authorId;
 }
